@@ -2,7 +2,7 @@
 name = "wechat-md-mcp"
 version = "0.1.0"
 description = "Markdown to WeChat HTML MCP server"
-readme = "MCP-微信Markdown转换器-README.md"
+readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
 
@@ -21,6 +21,6 @@ include = ["wechat_mcp_server.py"]
 include = [
   "wechat_mcp_server.py",
   "wechat_convert.py",
-  "MCP-微信Markdown转换器-README.md",
+  "README.md",
   "pyproject.toml",
 ]
