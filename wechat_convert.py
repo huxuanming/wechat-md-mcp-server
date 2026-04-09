@@ -23,6 +23,11 @@ def main() -> int:
         help="Optional output html path; if omitted, use .cache/wechat-mcp",
     )
     parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help="Override cache directory (or set WECHAT_MCP_CACHE_DIR).",
+    )
+    parser.add_argument(
         "--copy",
         action="store_true",
         help="Copy HTML to macOS clipboard as rich HTML",
@@ -42,7 +47,7 @@ def main() -> int:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(html, encoding="utf-8")
     else:
-        out_path = Path(w.save_html_cache(html))
+        out_path = Path(w.save_html_cache(html, cwd=str(md_path.parent), cache_dir=args.cache_dir))
 
     copied = False
     if args.copy:

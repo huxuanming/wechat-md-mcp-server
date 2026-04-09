@@ -18,6 +18,13 @@
 python3 wechat_mcp_server.py
 ```
 
+## 无网络环境使用（推荐）
+如果你的 MCP 容器/沙盒禁网，避免用 `uvx --from git+https://...` 拉取源码，直接用本地路径启动：
+
+```bash
+python3 -u /path/to/wechat_mcp_server.py
+```
+
 ## 用 uvx 封装并调用
 推荐通过 GitHub 直接调用：
 
@@ -72,6 +79,8 @@ uvx --from ./wechat-md-mcp-server wechat-md-mcp-server
 - 包含 `cacheHtmlPath`
 - 剪切板会被设置为 `HTML` 富文本类型，可直接粘贴公众号编辑器。
 
+> 说明：剪切板写入依赖 macOS 的 `osascript`，非 macOS 环境会失败并返回错误。
+
 ## 支持的 Markdown 语法
 - 标题：`#` 到 `######`
 - 段落
@@ -91,6 +100,10 @@ md = "# 标题\n\n这是**测试**，带[链接](https://example.com)和`代码`
 print(s.parse_markdown(md, theme_name="default")[:300])
 PY
 ```
+
+## 缓存目录
+默认会尝试写入用户缓存目录；如果权限受限，可设置：
+- `WECHAT_MCP_CACHE_DIR=/tmp/wechat-mcp`
 
 ## 后续可扩展
 - 增加“公众号兼容过滤器”（自动降级不兼容标签）。

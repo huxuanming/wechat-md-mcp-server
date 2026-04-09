@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -250,6 +251,11 @@ def parse_markdown(md: str, theme_name: str = "default", title: Optional[str] = 
 
 
 def copy_html_to_macos_clipboard(html: str) -> None:
+    if sys.platform != "darwin":
+        raise RuntimeError("Clipboard copy is only supported on macOS.")
+    if shutil.which("osascript") is None:
+        raise RuntimeError("osascript not found; cannot write rich HTML to clipboard.")
+
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".html", delete=False) as tmp:
         tmp.write(html)
         tmp_path = tmp.name
@@ -267,12 +273,36 @@ set the clipboard to (read f as «class HTML»)
             pass
 
 
-def save_html_cache(html: str, cwd: Optional[str] = None) -> str:
+def ensure_cache_dir(cwd: Optional[str] = None) -> str:
     base_dir = cwd or os.getcwd()
-    cache_dir = os.path.join(base_dir, ".cache", "wechat-mcp")
-    os.makedirs(cache_dir, exist_ok=True)
+    candidates = [
+        os.getenv("WECHAT_MCP_CACHE_DIR"),
+        os.path.join(base_dir, ".cache", "wechat-mcp"),
+        os.path.join(os.getcwd(), ".cache", "wechat-mcp"),
+        os.path.join(os.path.abspath(os.path.expanduser(os.getenv("XDG_CACHE_HOME", ""))), "wechat-mcp")
+        if os.getenv("XDG_CACHE_HOME")
+        else None,
+        os.path.join(os.path.expanduser("~"), "Library", "Caches", "wechat-mcp")
+        if sys.platform == "darwin"
+        else os.path.join(os.path.expanduser("~"), ".cache", "wechat-mcp"),
+        os.path.join(tempfile.gettempdir(), "wechat-mcp"),
+    ]
+    for raw in candidates:
+        if not raw:
+            continue
+        candidate = os.path.abspath(os.path.expanduser(raw))
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            return candidate
+        except OSError:
+            continue
+    raise RuntimeError("Failed to create cache directory.")
+
+
+def save_html_cache(html: str, cwd: Optional[str] = None, cache_dir: Optional[str] = None) -> str:
+    final_dir = cache_dir or ensure_cache_dir(cwd=cwd)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    file_path = os.path.join(cache_dir, f"wechat-{stamp}.html")
+    file_path = os.path.join(final_dir, f"wechat-{stamp}.html")
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html)
     return file_path
@@ -281,29 +311,45 @@ def save_html_cache(html: str, cwd: Optional[str] = None) -> str:
 class MCPServer:
     def __init__(self) -> None:
         self.initialized = False
+        self.shutdown_requested = False
 
     def read_message(self) -> Optional[Dict[str, Any]]:
-        headers: Dict[str, str] = {}
         while True:
-            line = sys.stdin.buffer.readline()
-            if not line:
+            headers: Dict[str, str] = {}
+            while True:
+                line = sys.stdin.buffer.readline()
+                if not line:
+                    return None
+                stripped = line.strip()
+                if not stripped:
+                    break
+                try:
+                    decoded = stripped.decode("utf-8", errors="replace")
+                except Exception:  # noqa: BLE001
+                    continue
+                if ":" in decoded:
+                    key, value = decoded.split(":", 1)
+                    headers[key.strip().lower()] = value.strip()
+
+            length_raw = headers.get("content-length")
+            if not length_raw:
+                continue
+
+            try:
+                length = int(length_raw)
+            except ValueError:
+                self.send_error(None, -32700, f"Invalid Content-Length: {length_raw}")
+                continue
+
+            content = sys.stdin.buffer.read(length)
+            if not content:
                 return None
-            line = line.strip()
-            if not line:
-                break
-            decoded = line.decode("utf-8")
-            if ":" in decoded:
-                key, value = decoded.split(":", 1)
-                headers[key.strip().lower()] = value.strip()
 
-        length = headers.get("content-length")
-        if not length:
-            return None
-
-        content = sys.stdin.buffer.read(int(length))
-        if not content:
-            return None
-        return json.loads(content.decode("utf-8"))
+            try:
+                return json.loads(content.decode("utf-8"))
+            except json.JSONDecodeError as e:
+                self.send_error(None, -32700, f"Invalid JSON payload: {e}")
+                continue
 
     def send(self, payload: Dict[str, Any]) -> None:
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -452,6 +498,20 @@ class MCPServer:
                 return
 
             theme = arguments.get("theme", "default")
+            if not isinstance(theme, str) or theme not in THEMES:
+                self.send_response(
+                    req_id,
+                    {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Invalid theme: {theme}. Available: {', '.join(sorted(THEMES.keys()))}",
+                            }
+                        ],
+                        "isError": True,
+                    },
+                )
+                return
             title = arguments.get("title")
             html = parse_markdown(markdown, theme_name=theme, title=title)
             saved_path = save_html_cache(html)
@@ -477,6 +537,20 @@ class MCPServer:
                 return
 
             theme = arguments.get("theme", "default")
+            if not isinstance(theme, str) or theme not in THEMES:
+                self.send_response(
+                    req_id,
+                    {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Invalid theme: {theme}. Available: {', '.join(sorted(THEMES.keys()))}",
+                            }
+                        ],
+                        "isError": True,
+                    },
+                )
+                return
             title = arguments.get("title")
             html = parse_markdown(markdown, theme_name=theme, title=title)
             saved_path = save_html_cache(html)
@@ -535,6 +609,15 @@ class MCPServer:
 
             if method == "notifications/initialized":
                 continue
+
+            if method == "shutdown":
+                self.shutdown_requested = True
+                if req_id is not None:
+                    self.send_response(req_id, {})
+                continue
+
+            if method == "exit":
+                break
 
             if method == "tools/list":
                 self.handle_tools_list(req_id)
