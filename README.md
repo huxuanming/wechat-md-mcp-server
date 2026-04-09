@@ -18,6 +18,11 @@
 python3 wechat_mcp_server.py
 ```
 
+查看帮助：
+```bash
+python3 wechat_mcp_server.py -h
+```
+
 ## 无网络环境使用（推荐）
 如果你的 MCP 容器/沙盒禁网，避免用 `uvx --from git+https://...` 拉取源码，直接用本地路径启动：
 

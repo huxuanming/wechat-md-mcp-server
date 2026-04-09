@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import re
@@ -652,6 +653,17 @@ class MCPServer:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="wechat-md-mcp-server",
+        description="Markdown to WeChat HTML MCP server",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {SERVER_VERSION}",
+    )
+    parser.parse_args()
+
     server = MCPServer()
     server.serve_forever()
 
