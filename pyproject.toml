@@ -1,13 +1,13 @@
 [project]
 name = "wechat-md-mcp-server"
-version = "0.1.0"
+version = "0.2.0"
 description = "Markdown to WeChat HTML MCP server"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = ["mcp>=1.0.0"]
 
 [project.scripts]
-wechat-md-mcp-server = "wechat_mcp_server:main"
+wechat-md-mcp-server = "server:main"
 wechat-md-convert = "wechat_convert:main"
 
 [build-system]
@@ -15,11 +15,11 @@ requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-include = ["wechat_mcp_server.py", "wechat_convert.py"]
+include = ["server.py", "wechat_convert.py"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "wechat_mcp_server.py",
+  "server.py",
   "wechat_convert.py",
   "README.md",
   "pyproject.toml",
