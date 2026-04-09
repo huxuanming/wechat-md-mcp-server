@@ -11,6 +11,8 @@ from html import escape
 from typing import Any, Dict, List, Optional
 
 PROTOCOL_VERSION = "2024-11-05"
+SERVER_NAME = "wechat-md-mcp-server"
+SERVER_VERSION = "0.1.0"
 
 THEMES = {
     "default": {
@@ -102,8 +104,8 @@ def inline_format(text: str, theme: Dict[str, str]) -> str:
     escaped = escape(text)
 
     def repl_code(match: re.Match[str]) -> str:
-        code = match.group(1)
-        return stash(f"<code style=\"{theme['code_inline']}\">{escape(code)}</code>")
+        code = match.group(1)  # already HTML-escaped from the upfront escape() call
+        return stash(f"<code style=\"{theme['code_inline']}\">{code}</code>")
 
     escaped = re.sub(r"`([^`]+)`", repl_code, escaped)
     escaped = re.sub(
@@ -239,6 +241,7 @@ def parse_markdown(md: str, theme_name: str = "default", title: Optional[str] = 
             list_items.append(inline_format(ol.group(1), theme))
             continue
 
+        flush_list()
         paragraph_buffer.append(line)
 
     flush_paragraph()
@@ -312,6 +315,12 @@ class MCPServer:
     def __init__(self) -> None:
         self.initialized = False
         self.shutdown_requested = False
+        self.negotiated_protocol_version = PROTOCOL_VERSION
+
+    def _debug(self, msg: str) -> None:
+        if os.getenv("WECHAT_MCP_DEBUG") not in (None, "", "0", "false", "False"):
+            sys.stderr.write(f"[wechat-md-mcp-server] {msg}\n")
+            sys.stderr.flush()
 
     def read_message(self) -> Optional[Dict[str, Any]]:
         while True:
@@ -364,14 +373,19 @@ class MCPServer:
     def send_error(self, req_id: Any, code: int, message: str) -> None:
         self.send({"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}})
 
-    def handle_initialize(self, req_id: Any) -> None:
+    def handle_initialize(self, req_id: Any, params: Dict[str, Any]) -> None:
         self.initialized = True
+        client_pv = params.get("protocolVersion")
+        if isinstance(client_pv, str) and client_pv.strip():
+            # Be permissive: some clients treat protocolVersion mismatch as a hard error.
+            self.negotiated_protocol_version = client_pv.strip()
+        self._debug(f"initialize: client_pv={client_pv!r} server_pv={PROTOCOL_VERSION!r} negotiated={self.negotiated_protocol_version!r}")
         self.send_response(
             req_id,
             {
-                "protocolVersion": PROTOCOL_VERSION,
-                "serverInfo": {"name": "wechat-markdown-mcp", "version": "0.1.0"},
-                "capabilities": {"tools": {}},
+                "protocolVersion": self.negotiated_protocol_version,
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+                "capabilities": {"tools": {"listChanged": False}},
             },
         )
 
@@ -602,9 +616,11 @@ class MCPServer:
             method = msg.get("method")
             req_id = msg.get("id")
             params = msg.get("params", {})
+            if not isinstance(params, dict):
+                params = {}
 
             if method == "initialize":
-                self.handle_initialize(req_id)
+                self.handle_initialize(req_id, params)
                 continue
 
             if method == "notifications/initialized":

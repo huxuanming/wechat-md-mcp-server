@@ -8,7 +8,6 @@ dependencies = []
 
 [project.scripts]
 wechat-md-mcp-server = "wechat_mcp_server:main"
-wechat-mcp-server = "wechat_mcp_server:main"
 wechat-md-convert = "wechat_convert:main"
 
 [build-system]

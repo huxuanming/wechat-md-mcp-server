@@ -44,13 +44,15 @@ uvx --from ./wechat-md-mcp-server wechat-md-mcp-server
 ```json
 {
   "mcpServers": {
-    "wechat-markdown": {
+    "wechat-md-mcp-server": {
       "command": "uvx",
       "args": ["--from", "git+https://github.com/huxuanming/wechat-md-mcp-server.git", "wechat-md-mcp-server"]
     }
   }
 }
 ```
+
+> 说明：`mcpServers` 里的 key 只是客户端侧的别名，可随意命名。
 
 ## 工具参数
 
