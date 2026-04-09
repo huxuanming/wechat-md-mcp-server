@@ -22,13 +22,13 @@ python3 wechat_mcp_server.py
 推荐通过 GitHub 直接调用：
 
 ```bash
-uvx --from "git+https://github.com/huxuanming/wechat-md-mcp.git" wechat-md-mcp
+uvx --from "git+https://github.com/huxuanming/wechat-md-mcp-server.git" wechat-md-mcp-server
 ```
 
 如果你是本地开发，也可以用相对路径：
 
 ```bash
-uvx --from ./wechat-md-mcp wechat-md-mcp
+uvx --from ./wechat-md-mcp-server wechat-md-mcp-server
 ```
 
 ## MCP 配置示例
@@ -39,7 +39,7 @@ uvx --from ./wechat-md-mcp wechat-md-mcp
   "mcpServers": {
     "wechat-markdown": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/huxuanming/wechat-md-mcp.git", "wechat-md-mcp"]
+      "args": ["--from", "git+https://github.com/huxuanming/wechat-md-mcp-server.git", "wechat-md-mcp-server"]
     }
   }
 }

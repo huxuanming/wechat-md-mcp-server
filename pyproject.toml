@@ -1,5 +1,5 @@
 [project]
-name = "wechat-md-mcp"
+name = "wechat-md-mcp-server"
 version = "0.1.0"
 description = "Markdown to WeChat HTML MCP server"
 readme = "README.md"
@@ -7,7 +7,7 @@ requires-python = ">=3.9"
 dependencies = []
 
 [project.scripts]
-wechat-md-mcp = "wechat_mcp_server:main"
+wechat-md-mcp-server = "wechat_mcp_server:main"
 wechat-mcp-server = "wechat_mcp_server:main"
 
 [build-system]
