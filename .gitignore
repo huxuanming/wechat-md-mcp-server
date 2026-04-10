@@ -9,6 +9,13 @@ dist/
 
 # Local cache/output
 .cache/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 
 # macOS
 .DS_Store
