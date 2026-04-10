@@ -2,12 +2,12 @@
 import argparse
 from pathlib import Path
 
-import wechat_mcp_server as w
+from wechat_md_mcp import parse_markdown, save_html_cache
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Convert Markdown to WeChat HTML, optionally copy as rich HTML clipboard."
+        description="Convert Markdown to WeChat HTML."
     )
     parser.add_argument("input", help="Input markdown file path")
     parser.add_argument(
@@ -28,9 +28,9 @@ def main() -> int:
         help="Override cache directory (or set WECHAT_MCP_CACHE_DIR).",
     )
     parser.add_argument(
-        "--copy",
+        "--open",
         action="store_true",
-        help="Copy HTML to macOS clipboard as rich HTML",
+        help="Open output HTML in browser after conversion",
     )
 
     args = parser.parse_args()
@@ -40,24 +40,26 @@ def main() -> int:
         raise SystemExit(f"Input file not found: {md_path}")
 
     markdown = md_path.read_text(encoding="utf-8")
-    html = w.parse_markdown(markdown, theme_name=args.theme, title=args.title)
+    html = parse_markdown(markdown, theme_name=args.theme, title=args.title)
 
     if args.out:
         out_path = Path(args.out).expanduser().resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(html, encoding="utf-8")
     else:
-        out_path = Path(w.save_html_cache(html, cwd=str(md_path.parent), cache_dir=args.cache_dir))
-
-    copied = False
-    if args.copy:
-        w.copy_html_to_macos_clipboard(html)
-        copied = True
+        try:
+            out_path = Path(save_html_cache(html, cache_dir=args.cache_dir))
+        except Exception as e:
+            raise SystemExit(f"Failed to save cache: {e}")
 
     print(f"Input: {md_path}")
     print(f"Theme: {args.theme}")
     print(f"Output: {out_path}")
-    print(f"Clipboard: {'yes' if copied else 'no'}")
+
+    if args.open:
+        import webbrowser
+        webbrowser.open(out_path.resolve().as_uri())
+
     return 0
 
 

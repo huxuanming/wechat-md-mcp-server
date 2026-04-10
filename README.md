@@ -1,50 +1,38 @@
 # 微信 Markdown 转换 MCP
 
-这个 MCP 服务提供两个工具：
-- `convert_markdown_to_wechat_html`: 把 Markdown 转成可用于公众号排版流程的内联样式 HTML。
-- `list_wechat_themes`: 返回可用主题。
-- `convert_markdown_to_wechat_clipboard`: 把 Markdown 转换后直接写入 macOS 剪切板（HTML 富文本）。
+把 Markdown 转成适合微信公众号的内联样式 HTML。服务只负责渲染输出，复制富文本交给用户现有工作流（浏览器、Doocs/md、WeMD、mdnice 等）。
 
-转换成功后会自动缓存一份 HTML 到：
-- `./.cache/wechat-mcp/`
+## 工具
 
-> 说明：公众号后台会过滤部分 HTML。实践上建议把输出先粘到 Doocs/md、WeMD 或 mdnice 再复制到公众号后台，兼容性更稳。
+| 工具 | 说明 |
+|------|------|
+| `convert_markdown_to_wechat_html` | Markdown → 内联样式 HTML 字符串 |
+| `open_wechat_html_in_browser` | 将 HTML 存入缓存并在浏览器中打开，全选复制后可直接粘贴到公众号编辑器 |
+| `list_wechat_themes` | 返回可用主题列表 |
 
-## 文件
-- `wechat_mcp_server.py`
+转换成功后自动缓存 HTML 到 `./.cache/wechat-mcp/`，可通过 `WECHAT_MCP_CACHE_DIR` 环境变量覆盖。
 
 ## 运行
-```bash
-python3 wechat_mcp_server.py
-```
-
-查看帮助：
-```bash
-python3 wechat_mcp_server.py -h
-```
-
-## 无网络环境使用（推荐）
-如果你的 MCP 容器/沙盒禁网，避免用 `uvx --from git+https://...` 拉取源码，直接用本地路径启动：
-
-```bash
-python3 -u /path/to/wechat_mcp_server.py
-```
-
-## 用 uvx 封装并调用
-推荐通过 GitHub 直接调用：
 
 ```bash
 uvx --from "git+https://github.com/huxuanming/wechat-md-mcp-server.git" wechat-md-mcp-server
 ```
 
-如果你是本地开发，也可以用相对路径：
+本地开发：
 
 ```bash
-uvx --from ./wechat-md-mcp-server wechat-md-mcp-server
+uvx --from . wechat-md-mcp-server
+```
+
+查看可用工具：
+
+```bash
+uvx --from . wechat-md-mcp-server --list-tools
 ```
 
 ## MCP 配置示例
-把下面配置到你的 MCP 客户端（按客户端格式调整）：
+
+**远程（GitHub）：**
 
 ```json
 {
@@ -57,62 +45,89 @@ uvx --from ./wechat-md-mcp-server wechat-md-mcp-server
 }
 ```
 
-> 说明：`mcpServers` 里的 key 只是客户端侧的别名，可随意命名。
+**本地开发（推荐用 `uv run`，自动感知代码变化）：**
+
+```json
+{
+  "mcpServers": {
+    "wechat-md-mcp-server": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/wechat-md-mcp-server", "run", "wechat-md-mcp-server"]
+    }
+  }
+}
+```
+
+> 本地开发不要用 `uvx --from /path`，uvx 会缓存构建产物，代码修改后不会自动重建。
 
 ## 工具参数
 
-### 1) `convert_markdown_to_wechat_html`
-输入：
-- `markdown` (string, required)
-- `theme` (string, optional): `default | tech | warm | apple | wechat-native`
-- `title` (string, optional)
+### `convert_markdown_to_wechat_html`
 
-输出：
-- `text` 内容为 HTML 字符串（`<article>...</article>`）
-- `meta.cacheHtmlPath` 返回缓存文件路径
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `markdown` | string | 是 | 源 Markdown 文本 |
+| `theme` | string | 否 | 主题，见下方列表，默认 `default` |
+| `title` | string | 否 | 文章标题，渲染为 h1 |
 
-### 2) `list_wechat_themes`
-输入：空对象
-输出：主题列表
+输出：HTML 字符串（`<article>...</article>`）。
 
-### 3) `convert_markdown_to_wechat_clipboard`
-输入：
-- `markdown` (string, required)
-- `theme` (string, optional): `default | tech | warm | apple | wechat-native`
-- `title` (string, optional)
+### `list_wechat_themes`
 
-输出：
-- JSON 文本，包含 `ok / htmlLength / theme`
-- 包含 `cacheHtmlPath`
-- 剪切板会被设置为 `HTML` 富文本类型，可直接粘贴公众号编辑器。
+无参数，返回主题名称和描述列表。
 
-> 说明：剪切板写入依赖 macOS 的 `osascript`，非 macOS 环境会失败并返回错误。
+## 主题
+
+| 名称 | 风格 |
+|------|------|
+| `default` | 通用企业风 |
+| `tech` | 简洁技术风 |
+| `warm` | 暖色品牌风 |
+| `apple` | Apple 极简风 |
+| `wechat-native` | 微信绿原生风 |
+
+## 命令行工具
+
+`wechat-md-convert` 可直接转换本地 Markdown 文件：
+
+```bash
+uvx --from . wechat-md-convert input.md --theme tech --out output.html
+```
+
+| 参数 | 说明 |
+|------|------|
+| `input` | 输入 Markdown 文件路径 |
+| `--theme` | 主题（默认 `default`） |
+| `--title` | 标题覆盖 |
+| `--out` | 输出 HTML 路径，省略则写入缓存目录 |
+| `--cache-dir` | 覆盖缓存目录 |
+| `--open` | 转换完成后自动在浏览器中打开，全选复制即可粘贴到公众号编辑器 |
 
 ## 支持的 Markdown 语法
+
 - 标题：`#` 到 `######`
-- 段落
-- 无序/有序列表
+- 段落、换行
+- 无序列表（`-` / `*` / `+`）、有序列表
 - 引用：`>`
 - 分割线：`---` 或 `***`
-- 行内强调：`**bold**`、`*italic*`
+- 粗体：`**bold**`，斜体：`*italic*`，嵌套：`**bold *italic* bold**`
 - 行内代码：`` `code` ``
-- 代码块：```lang ... ```
-- 链接：`[text](https://...)`
+- 代码块：` ```lang ... ``` `
+- 链接：`[text](https://...)` / `[text](#anchor)` / `[text](mailto:...)`
 
-## 快速验证（本地）
+## 快速验证
+
 ```bash
-PYTHONPYCACHEPREFIX=/tmp python3 - <<'PY'
-import wechat_mcp_server as s
+uvx --from . python3 - <<'PY'
+import server as s
 md = "# 标题\n\n这是**测试**，带[链接](https://example.com)和`代码`。"
 print(s.parse_markdown(md, theme_name="default")[:300])
 PY
 ```
 
-## 缓存目录
-默认会尝试写入用户缓存目录；如果权限受限，可设置：
-- `WECHAT_MCP_CACHE_DIR=/tmp/wechat-mcp`
+## 缓存目录优先级
 
-## 后续可扩展
-- 增加“公众号兼容过滤器”（自动降级不兼容标签）。
-- 增加封面导语卡片、参数对比卡片等业务组件。
-- 增加“一键输出纯文本 + 富文本双版本”。
+1. `WECHAT_MCP_CACHE_DIR` 环境变量
+2. `<输入文件目录>/.cache/wechat-mcp/`
+3. `~/.cache/wechat-mcp/`（macOS：`~/Library/Caches/wechat-mcp/`）
+4. 系统临时目录
